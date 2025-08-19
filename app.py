@@ -19,7 +19,7 @@ if "OPENAI_API_KEY" not in os.environ or not os.environ["OPENAI_API_KEY"].strip(
 
 client = OpenAI()
 
-APP_TITLE = "🇻🇳⇄🇯🇵 ベトナム語 ⇄ 日本語 翻訳 (テキスト + 音声)"
+APP_TITLE = "🇻🇳⇄🇯🇵⇄🇺🇸 多言語翻訳 (テキスト + 音声)"
 STT_MODEL = "gpt-4o-mini-transcribe"     # 音声→テキスト
 TTS_MODEL = "gpt-4o-mini-tts"             # テキスト→音声
 LLM_MODEL = "gpt-4o-mini"                 # 翻訳
@@ -31,7 +31,7 @@ st.caption("テキスト翻訳、マイク入力、音声会話。Streamlit + Op
 
 # Keep language choices in session and provide a one-click swap
 if "src" not in st.session_state:
-    st.session_state.src = "auto"
+    st.session_state.src = "vi"
 if "dst" not in st.session_state:
     st.session_state.dst = "ja"
 
@@ -43,35 +43,133 @@ def swap_langs():
 # -----------------------------
 
 def detect_lang_simple(text: str) -> str:
-    """ベトナム語/日本語の簡易判定"""
+    """ベトナム語/日本語/英語の簡易判定"""
     if any("぀" <= ch <= "ヿ" or "一" <= ch <= "鿿" for ch in text):
         return "ja"
     try:
         lang = detect(text)
-        if lang in ("ja", "vi"):
+        if lang in ("ja", "vi", "en"):
             return lang
     except Exception:
         pass
-    return "vi" if all(ord(c) < 128 for c in text) else "ja"
+    # Simple heuristic: if mostly ASCII, likely English or Vietnamese
+    if all(ord(c) < 128 for c in text):
+        # Basic check for English vs Vietnamese
+        english_words = ["the", "and", "is", "are", "was", "were", "have", "has", "will", "would", "can", "could"]
+        vietnamese_chars = ["ă", "â", "đ", "ê", "ô", "ơ", "ư", "á", "à", "ả", "ã", "ạ"]
+        
+        text_lower = text.lower()
+        has_english = any(word in text_lower for word in english_words)
+        has_vietnamese = any(char in text_lower for char in vietnamese_chars)
+        
+        if has_vietnamese:
+            return "vi"
+        elif has_english:
+            return "en"
+        else:
+            return "vi"  # default fallback
+    return "ja"
+
+
+def detect_formality_and_context(text: str, lang: str) -> dict:
+    """AI-powered formality and context detection"""
+    analysis_prompt = f"""
+    Analyze the following text in {lang} language and determine:
+    1. Formality level: casual, neutral, formal, very_formal
+    2. Context: personal, business, academic, technical, creative, medical, legal
+    3. Tone: friendly, professional, serious, playful, urgent, polite
+    
+    Text: "{text}"
+    
+    Respond with only a JSON object like:
+    {{"formality": "formal", "context": "business", "tone": "professional"}}
+    """
+    
+    try:
+        resp = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": analysis_prompt}],
+            temperature=0.1,
+            max_tokens=100
+        )
+        
+        import json
+        result = json.loads(resp.choices[0].message.content.strip())
+        return result
+    except Exception:
+        # Fallback to simple heuristics
+        text_lower = text.lower()
+        
+        # Simple formality detection
+        formal_indicators = ["please", "thank you", "sincerely", "respectfully", "でございます", "いたします", "xin chào", "kính chào"]
+        casual_indicators = ["hey", "yo", "だよ", "だね", "ね", "よ", "chào bạn", "ơi"]
+        
+        if any(indicator in text_lower for indicator in formal_indicators):
+            formality = "formal"
+        elif any(indicator in text_lower for indicator in casual_indicators):
+            formality = "casual"
+        else:
+            formality = "neutral"
+            
+        return {"formality": formality, "context": "personal", "tone": "friendly"}
 
 
 def translate_text(text: str, src: str, dst: str) -> str:
     if src == "auto":
         detected = detect_lang_simple(text)
-        if detected in ("vi", "ja"):
+        if detected in ("vi", "ja", "en"):
             src = detected
         else:
             src = "vi"  # default fallback
     if src == dst:
         return text
 
-    system_prompt = (
-        "あなたはプロの翻訳者です。文章を簡潔かつ自然に翻訳してください。"
-        "- ソース言語: 'vi'=ベトナム語, 'ja'=日本語"
-        "- ターゲット言語: 'ja'=日本語, 'vi'=ベトナム語"
-        "- 数字や名前はそのまま保持"
-        "- 説明は追加せず翻訳文のみ出力"
-    )
+    # AI-powered context analysis
+    context_info = detect_formality_and_context(text, src)
+    formality = context_info.get("formality", "neutral")
+    context = context_info.get("context", "personal")
+    tone = context_info.get("tone", "friendly")
+
+    # Create context-aware system prompt
+    base_prompt = "あなたはプロの翻訳者です。"
+    
+    if formality == "very_formal":
+        style_instruction = "最も丁寧で格式高い表現を使用し、敬語を適切に使い分けてください。"
+    elif formality == "formal":
+        style_instruction = "丁寧で正式な表現を使用し、ビジネス文書や公式な場面に適した翻訳をしてください。"
+    elif formality == "casual":
+        style_instruction = "自然でカジュアルな表現を使用し、日常会話に適した親しみやすい翻訳をしてください。"
+    else:  # neutral
+        style_instruction = "自然で適度に丁寧な表現を使用してください。"
+    
+    if context == "business":
+        context_instruction = "ビジネス文書として適切な専門用語と表現を使用してください。"
+    elif context == "academic":
+        context_instruction = "学術的で正確な表現を使用し、専門性を保ってください。"
+    elif context == "technical":
+        context_instruction = "技術的な内容として正確性を重視し、専門用語を適切に翻訳してください。"
+    elif context == "medical":
+        context_instruction = "医療用語を正確に翻訳し、専門性と正確性を最優先してください。"
+    elif context == "legal":
+        context_instruction = "法的文書として正確で曖昧さのない表現を使用してください。"
+    else:  # personal, creative
+        context_instruction = "感情やニュアンスを大切にし、人間味のある自然な表現を心がけてください。"
+
+    system_prompt = f"""
+    {base_prompt}
+    
+    翻訳スタイル: {style_instruction}
+    文脈考慮: {context_instruction}
+    
+    - ソース言語: 'vi'=ベトナム語, 'ja'=日本語, 'en'=英語
+    - ターゲット言語: 'ja'=日本語, 'vi'=ベトナム語, 'en'=英語
+    - 検出された調子: {tone}
+    - 文脈: {context}
+    - 丁寧度: {formality}
+    
+    元のテキストの調子と文脈を保ちながら、上記スタイルで翻訳してください。
+    数字や名前はそのまま保持し、説明は追加せず翻訳文のみ出力してください。
+    """
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -96,7 +194,7 @@ def transcribe_bytes(wav_bytes: bytes, lang_hint: str = "auto") -> str:
     try:
         with open(tmp_path, "rb") as f:
             kwargs = {"model": STT_MODEL, "file": f}
-            if lang_hint in ("vi", "ja"):
+            if lang_hint in ("vi", "ja", "en"):
                 kwargs["language"] = lang_hint
             stt = client.audio.transcriptions.create(**kwargs)
         return stt.text.strip()
@@ -119,7 +217,7 @@ def speak(text: str, voice: str = "alloy", fmt: str = "mp3"):
     }
     # Ask the API for the format we want
     if fmt in ("mp3", "wav"):
-        params["format"] = fmt
+        params["response_format"] = fmt
 
     try:
         resp = client.audio.speech.create(**params)
@@ -143,12 +241,11 @@ with st.sidebar:
     # language row: [src] [⇄] [dst]
     col1, colS, col2 = st.columns([1, 0.25, 1])
     with col1:
-        st.selectbox("入力言語 / Ngôn ngữ nguồn", ["auto", "vi", "ja"], key="src")
+        st.selectbox("入力言語 / Ngôn ngữ nguồn", ["vi", "ja", "en"], key="src")
     with colS:
         st.button("⇄", help="入力/出力を入れ替え · Đổi chiều", on_click=swap_langs, use_container_width=True)
     with col2:
-        st.selectbox("出力言語 / Ngôn ngữ đích", ["ja", "vi"], key="dst")
-    st.caption("Tip: 'auto'=自動判定 / tự động phát hiện")
+        st.selectbox("出力言語 / Ngôn ngữ đích", ["ja", "vi", "en"], key="dst")
 
     st.divider()
     st.subheader("音声設定 / Cấu hình giọng nói")
@@ -164,12 +261,41 @@ dst_choice = st.session_state.dst
 # -----------------------------
 if mode.startswith("テキスト"):
     st.subheader("📝 テキスト翻訳 / Dịch văn bản")
-    example = "Xin chào, rất vui được gặp bạn." if dst_choice == "ja" else "今日はとても暑いですね。"
+    if dst_choice == "ja":
+        example = "Xin chào, rất vui được gặp bạn." if src_choice == "vi" else "Hello, nice to meet you."
+    elif dst_choice == "vi":
+        example = "今日はとても暑いですね。" if src_choice == "ja" else "The weather is very hot today."
+    else:  # dst_choice == "en"
+        example = "今日はとても暑いですね。" if src_choice == "ja" else "Xin chào, rất vui được gặp bạn."
+    
     text_in = st.text_area("テキスト入力 / Nhập văn bản", example, height=150)
     if st.button("翻訳 / Dịch", type="primary"):
         if not text_in.strip():
             st.warning("テキストを入力してください / Vui lòng nhập văn bản")
         else:
+            with st.spinner("AI分析中... / Đang phân tích AI..."):
+                # First, detect context and formality
+                context_info = detect_formality_and_context(text_in, src_choice)
+                
+                # Show AI analysis
+                with st.expander("🤖 AI分析結果 / Kết quả phân tích AI", expanded=False):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        formality_emoji = {"casual": "😊", "neutral": "😐", "formal": "🎩", "very_formal": "👔"}
+                        st.metric("丁寧度 / Độ lịch sự", 
+                                context_info.get("formality", "neutral"), 
+                                delta=f"{formality_emoji.get(context_info.get('formality', 'neutral'), '😐')}")
+                    with col2:
+                        context_emoji = {"personal": "👥", "business": "💼", "academic": "🎓", "technical": "⚙️", "creative": "🎨", "medical": "🏥", "legal": "⚖️"}
+                        st.metric("文脈 / Ngữ cảnh", 
+                                context_info.get("context", "personal"),
+                                delta=f"{context_emoji.get(context_info.get('context', 'personal'), '👥')}")
+                    with col3:
+                        tone_emoji = {"friendly": "😊", "professional": "💼", "serious": "😐", "playful": "😄", "urgent": "⚡", "polite": "🙏"}
+                        st.metric("調子 / Giọng điệu", 
+                                context_info.get("tone", "friendly"),
+                                delta=f"{tone_emoji.get(context_info.get('tone', 'friendly'), '😊')}")
+                
             with st.spinner("翻訳中... / Đang dịch..."):
                 out = translate_text(text_in, src_choice, dst_choice)
             st.success("完了 / Hoàn tất")
@@ -190,6 +316,25 @@ elif mode.startswith("音声入力"):
         transcript = transcribe_bytes(wav_bytes, src_choice if src_choice != "auto" else "auto")
         st.markdown("**文字起こし / Văn bản**")
         st.write(transcript)
+
+        # AI Context Analysis
+        with st.spinner("AI分析中... / Đang phân tích AI..."):
+            context_info = detect_formality_and_context(transcript, src_choice)
+            
+        with st.expander("🤖 AI分析結果 / Kết quả phân tích AI", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                formality_emoji = {"casual": "😊", "neutral": "😐", "formal": "🎩", "very_formal": "👔"}
+                st.metric("丁寧度", context_info.get("formality", "neutral"), 
+                        delta=f"{formality_emoji.get(context_info.get('formality', 'neutral'), '😐')}")
+            with col2:
+                context_emoji = {"personal": "👥", "business": "💼", "academic": "🎓", "technical": "⚙️", "creative": "🎨", "medical": "🏥", "legal": "⚖️"}
+                st.metric("文脈", context_info.get("context", "personal"),
+                        delta=f"{context_emoji.get(context_info.get('context', 'personal'), '👥')}")
+            with col3:
+                tone_emoji = {"friendly": "😊", "professional": "💼", "serious": "😐", "playful": "😄", "urgent": "⚡", "polite": "🙏"}
+                st.metric("調子", context_info.get("tone", "friendly"),
+                        delta=f"{tone_emoji.get(context_info.get('tone', 'friendly'), '😊')}")
 
         with st.spinner("翻訳中... / Đang dịch..."):
             out = translate_text(transcript, src_choice, dst_choice)
@@ -212,7 +357,18 @@ elif mode.startswith("会話"):
     if wav_bytes:
         transcript = transcribe_bytes(wav_bytes, "auto")
         detected = detect_lang_simple(transcript)
-        target = "ja" if detected == "vi" else "vi"
+        # Use the selected target language from translation settings
+        target = dst_choice
+        
+        # If source and destination are the same, auto-select an appropriate target
+        if detected == dst_choice:
+            if detected == "vi":
+                target = "ja"
+            elif detected == "ja":
+                target = "vi"
+            elif detected == "en":
+                target = "ja"  # default fallback
+            
         translation = translate_text(transcript, detected, target)
         st.session_state.chat.append({
             "speaker": "A" if (len(st.session_state.chat) % 2 == 0) else "B",
@@ -235,5 +391,6 @@ elif mode.startswith("会話"):
 # -----------------------------
 # Footer
 # -----------------------------
+st.caption("🤖 AI-Powered Context-Aware Translation · コンテキスト認識AI翻訳 · Dịch thuật AI nhận thức ngữ cảnh")
 st.caption("❤️ Streamlit + OpenAI で構築 · Xây dựng bằng Streamlit và OpenAI · FFmpeg 推奨 / Nên cài FFmpeg")
 

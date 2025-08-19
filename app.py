@@ -25,9 +25,19 @@ STT_MODEL = "gpt-4o-mini-transcribe"     # 音声→テキスト
 TTS_MODEL = "gpt-4o-mini-tts"             # テキスト→音声
 LLM_MODEL = "gpt-4o-mini"                 # 翻訳
 
-st.set_page_config(page_title=APP_TITLE, page_icon="🌏", layout="centered")
+# Mobile-friendly: wide layout collapses sidebar by default on phones
+st.set_page_config(page_title=APP_TITLE, page_icon="🌏", layout="wide", initial_sidebar_state="collapsed")
 st.title(APP_TITLE)
 st.caption("テキスト翻訳、マイク入力、音声会話。Streamlit + OpenAI で構築。")
+
+# Keep language choices in session and provide a one-click swap
+if "src" not in st.session_state:
+    st.session_state.src = "auto"
+if "dst" not in st.session_state:
+    st.session_state.dst = "ja"
+
+def swap_langs():
+    st.session_state.src, st.session_state.dst = st.session_state.dst, st.session_state.src
 
 # -----------------------------
 # ヘルパー関数
@@ -131,18 +141,26 @@ with st.sidebar:
     st.header("⚙️ 設定 / Cài đặt")
     mode = st.radio("モード / Chế độ", ["テキスト翻訳 / Dịch văn bản", "音声入力 / Ghi âm", "会話モード / Hội thoại"], index=0) or "テキスト翻訳 / Dịch văn bản"
     st.divider()
+
     st.subheader("翻訳設定 / Cấu hình dịch")
-    col1, col2 = st.columns(2)
+    # language row: [src] [⇄] [dst]
+    col1, colS, col2 = st.columns([1, 0.25, 1])
     with col1:
-        src_choice = st.selectbox("入力言語 / Ngôn ngữ nguồn", ["auto", "vi", "ja"], index=0) or "auto"
+        st.selectbox("入力言語 / Ngôn ngữ nguồn", ["auto", "vi", "ja"], key="src")
+    with colS:
+        st.button("⇄", help="入力/出力を入れ替え · Đổi chiều", on_click=swap_langs, use_container_width=True)
     with col2:
-        dst_choice = st.selectbox("出力言語 / Ngôn ngữ đích", ["ja", "vi"], index=0) or "ja"
+        st.selectbox("出力言語 / Ngôn ngữ đích", ["ja", "vi"], key="dst")
     st.caption("Tip: 'auto'=自動判定 / tự động phát hiện")
 
     st.divider()
     st.subheader("音声設定 / Cấu hình giọng nói")
     tts_voice = st.selectbox("音声タイプ / Giọng", ["alloy", "verse", "aria", "sage"], index=0) or "alloy"
     audio_format = st.selectbox("音声形式 / Định dạng", ["mp3", "wav"], index=0) or "mp3"
+
+# read current choices from session
+src_choice = st.session_state.src
+dst_choice = st.session_state.dst
 
 # -----------------------------
 # 各モード (UI 表示も日越併記)
@@ -168,7 +186,8 @@ elif mode.startswith("音声入力"):
     st.subheader("🎤 音声入力翻訳 / Dịch giọng nói")
     st.caption("クリックして録音 / Nhấn để ghi âm")
 
-    wav_bytes = audio_recorder(text="録音 / Ghi âm", recording_color="#e53935", neutral_color="#6c757d", icon_size="2x")
+    # Smaller icon for phones
+    wav_bytes = audio_recorder(text="録音 / Ghi âm", recording_color="#e53935", neutral_color="#6c757d", icon_size="1.6x")
     if wav_bytes:
         st.info("録音完了 / Đã ghi âm. テキスト化中... / Đang nhận dạng...")
         transcript = transcribe_bytes(wav_bytes, src_choice if src_choice != "auto" else "auto")
@@ -191,7 +210,8 @@ elif mode.startswith("会話"):
     if "chat" not in st.session_state:
         st.session_state.chat = []
 
-    wav_bytes = audio_recorder(text="話す / Nói", recording_color="#1e88e5", neutral_color="#6c757d", icon_size="2x")
+    # Smaller icon for phones
+    wav_bytes = audio_recorder(text="話す / Nói", recording_color="#1e88e5", neutral_color="#6c757d", icon_size="1.6x")
     if wav_bytes:
         transcript = transcribe_bytes(wav_bytes, "auto")
         detected = detect_lang_simple(transcript)

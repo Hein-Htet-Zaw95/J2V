@@ -282,19 +282,25 @@ if mode.startswith("テキスト"):
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         formality_emoji = {"casual": "😊", "neutral": "😐", "formal": "🎩", "very_formal": "👔"}
-                        st.metric("丁寧度 / Độ lịch sự", 
-                                context_info.get("formality", "neutral"), 
-                                delta=f"{formality_emoji.get(context_info.get('formality', 'neutral'), '😐')}")
+                        formality_jp = {"casual": "カジュアル", "neutral": "普通", "formal": "丁寧", "very_formal": "非常に丁寧"}
+                        current_formality = context_info.get("formality", "neutral")
+                        st.metric("丁寧度 / Độ lịch sự / Formality", 
+                                f"{formality_jp.get(current_formality, '普通')} / {current_formality}", 
+                                delta=f"{formality_emoji.get(current_formality, '😐')}")
                     with col2:
                         context_emoji = {"personal": "👥", "business": "💼", "academic": "🎓", "technical": "⚙️", "creative": "🎨", "medical": "🏥", "legal": "⚖️"}
-                        st.metric("文脈 / Ngữ cảnh", 
-                                context_info.get("context", "personal"),
-                                delta=f"{context_emoji.get(context_info.get('context', 'personal'), '👥')}")
+                        context_jp = {"personal": "個人的", "business": "ビジネス", "academic": "学術的", "technical": "技術的", "creative": "創作的", "medical": "医療", "legal": "法的"}
+                        current_context = context_info.get("context", "personal")
+                        st.metric("文脈 / Ngữ cảnh / Context", 
+                                f"{context_jp.get(current_context, '個人的')} / {current_context}",
+                                delta=f"{context_emoji.get(current_context, '👥')}")
                     with col3:
                         tone_emoji = {"friendly": "😊", "professional": "💼", "serious": "😐", "playful": "😄", "urgent": "⚡", "polite": "🙏"}
-                        st.metric("調子 / Giọng điệu", 
-                                context_info.get("tone", "friendly"),
-                                delta=f"{tone_emoji.get(context_info.get('tone', 'friendly'), '😊')}")
+                        tone_jp = {"friendly": "親しみやすい", "professional": "プロ的", "serious": "真面目", "playful": "遊び心", "urgent": "緊急", "polite": "礼儀正しい"}
+                        current_tone = context_info.get("tone", "friendly")
+                        st.metric("調子 / Giọng điệu / Tone", 
+                                f"{tone_jp.get(current_tone, '親しみやすい')} / {current_tone}",
+                                delta=f"{tone_emoji.get(current_tone, '😊')}")
                 
             with st.spinner("翻訳中... / Đang dịch..."):
                 out = translate_text(text_in, src_choice, dst_choice)
@@ -315,7 +321,7 @@ elif mode.startswith("音声入力"):
         st.info("録音完了 / Đã ghi âm. テキスト化中... / Đang nhận dạng...")
         transcript = transcribe_bytes(wav_bytes, src_choice if src_choice != "auto" else "auto")
         st.markdown("**文字起こし / Văn bản**")
-        st.write(transcript)
+        st.markdown(f"<div style='font-size: 1.5em; padding: 10px; background-color: #f0f2f6; border-radius: 5px; margin: 10px 0; color: #333333;'>{transcript}</div>", unsafe_allow_html=True)
 
         # AI Context Analysis
         with st.spinner("AI分析中... / Đang phân tích AI..."):
@@ -325,21 +331,30 @@ elif mode.startswith("音声入力"):
             col1, col2, col3 = st.columns(3)
             with col1:
                 formality_emoji = {"casual": "😊", "neutral": "😐", "formal": "🎩", "very_formal": "👔"}
-                st.metric("丁寧度", context_info.get("formality", "neutral"), 
-                        delta=f"{formality_emoji.get(context_info.get('formality', 'neutral'), '😐')}")
+                formality_jp = {"casual": "カジュアル", "neutral": "普通", "formal": "丁寧", "very_formal": "非常に丁寧"}
+                current_formality = context_info.get("formality", "neutral")
+                st.metric("丁寧度 / Độ lịch sự / Formality", 
+                        f"{formality_jp.get(current_formality, '普通')} / {current_formality}", 
+                        delta=f"{formality_emoji.get(current_formality, '😐')}")
             with col2:
                 context_emoji = {"personal": "👥", "business": "💼", "academic": "🎓", "technical": "⚙️", "creative": "🎨", "medical": "🏥", "legal": "⚖️"}
-                st.metric("文脈", context_info.get("context", "personal"),
-                        delta=f"{context_emoji.get(context_info.get('context', 'personal'), '👥')}")
+                context_jp = {"personal": "個人的", "business": "ビジネス", "academic": "学術的", "technical": "技術的", "creative": "創作的", "medical": "医療", "legal": "法的"}
+                current_context = context_info.get("context", "personal")
+                st.metric("文脈 / Ngữ cảnh / Context", 
+                        f"{context_jp.get(current_context, '個人的')} / {current_context}",
+                        delta=f"{context_emoji.get(current_context, '👥')}")
             with col3:
                 tone_emoji = {"friendly": "😊", "professional": "💼", "serious": "😐", "playful": "😄", "urgent": "⚡", "polite": "🙏"}
-                st.metric("調子", context_info.get("tone", "friendly"),
-                        delta=f"{tone_emoji.get(context_info.get('tone', 'friendly'), '😊')}")
+                tone_jp = {"friendly": "親しみやすい", "professional": "プロ的", "serious": "真面目", "playful": "遊び心", "urgent": "緊急", "polite": "礼儀正しい"}
+                current_tone = context_info.get("tone", "friendly")
+                st.metric("調子 / Giọng điệu / Tone", 
+                        f"{tone_jp.get(current_tone, '親しみやすい')} / {current_tone}",
+                        delta=f"{tone_emoji.get(current_tone, '😊')}")
 
         with st.spinner("翻訳中... / Đang dịch..."):
             out = translate_text(transcript, src_choice, dst_choice)
         st.markdown("**翻訳 / Bản dịch**")
-        st.write(out)
+        st.markdown(f"<div style='font-size: 1.7em; font-weight: bold; padding: 15px; background-color: #e8f4fd; border-radius: 5px; margin: 10px 0; border-left: 4px solid #1f77b4; color: #1f77b4;'>{out}</div>", unsafe_allow_html=True)
 
         audio_bytes, mime = speak(out, voice=tts_voice, fmt=audio_format)
         if audio_bytes:
@@ -384,8 +399,15 @@ elif mode.startswith("会話"):
     for i, msg in enumerate(reversed(st.session_state.chat)):
         role = msg["speaker"]
         st.markdown(f"### {len(st.session_state.chat)-i} 回目 / Lượt {len(st.session_state.chat)-i} · 話者 / Người nói {role}")
-        st.markdown(f"**原文 ({msg['src']})**: {msg['transcript']}")
-        st.markdown(f"**翻訳 ({msg['dst']})**: {msg['translation']}")
+        
+        # Original text with larger font
+        st.markdown("**原文 / Văn bản gốc:**")
+        st.markdown(f"<div style='font-size: 1.4em; padding: 10px; background-color: #f0f2f6; border-radius: 5px; margin: 5px 0; color: #333333;'><em>({msg['src']})</em> {msg['transcript']}</div>", unsafe_allow_html=True)
+        
+        # Translation with larger, more prominent font
+        st.markdown("**翻訳 / Bản dịch:**")
+        st.markdown(f"<div style='font-size: 1.6em; font-weight: bold; padding: 15px; background-color: #e8f4fd; border-radius: 5px; margin: 5px 0; border-left: 4px solid #1f77b4; color: #1f77b4;'><em>({msg['dst']})</em> {msg['translation']}</div>", unsafe_allow_html=True)
+        
         st.divider()
 
 # -----------------------------

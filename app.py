@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from langdetect import detect
 from audio_recorder_streamlit import audio_recorder
 from openai import OpenAI
-from pydub import AudioSegment
 
 # -----------------------------
 # 初期化
@@ -109,30 +108,28 @@ def transcribe_bytes(wav_bytes: bytes, lang_hint: str = "auto") -> str:
 
 
 def speak(text: str, voice: str = "alloy", fmt: str = "mp3"):
-    """TTS（format 引数なし）。必要ならローカルで MP3→WAV 変換。戻り値は (bytes, mime)。"""
+    """TTS -> bytes. No local conversion; we ask the API for mp3 or wav."""
     if not text.strip():
         return b"", "audio/mp3"
 
-    # 新SDKでは format= は使わない
-    resp = client.audio.speech.create(
-        model=TTS_MODEL,
-        voice=voice,
-        input=text,
-    )
-    raw = resp.read()  # bytes（デフォルトは MP3 データ）
+    params = {
+        "model": TTS_MODEL,
+        "voice": voice,
+        "input": text,
+    }
+    # Ask the API for the format we want
+    if fmt in ("mp3", "wav"):
+        params["format"] = fmt
 
-    if fmt == "mp3":
-        return raw, "audio/mp3"
-
-    # WAV が選択された場合はローカル変換
     try:
-        seg = AudioSegment.from_file(io.BytesIO(raw), format="mp3")
-        buf = io.BytesIO()
-        seg.export(buf, format="wav")
-        return buf.getvalue(), "audio/wav"
-    except Exception:
-        # 変換失敗時は MP3 を返す
-        return raw, "audio/mp3"
+        resp = client.audio.speech.create(**params)
+        audio_bytes = resp.read()
+        mime = "audio/mp3" if fmt == "mp3" else "audio/wav"
+        return audio_bytes, mime
+    except Exception as e:
+        st.error(f"TTS error: {e}")
+        return b"", "audio/mp3"
+
 
 # -----------------------------
 # UI サイドバー
@@ -239,3 +236,4 @@ elif mode.startswith("会話"):
 # Footer
 # -----------------------------
 st.caption("❤️ Streamlit + OpenAI で構築 · Xây dựng bằng Streamlit và OpenAI · FFmpeg 推奨 / Nên cài FFmpeg")
+

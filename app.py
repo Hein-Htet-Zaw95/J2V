@@ -250,7 +250,7 @@ with st.sidebar:
     st.divider()
     st.subheader("音声設定 / Cấu hình giọng nói")
     tts_voice = st.selectbox("音声タイプ / Giọng", ["alloy", "verse", "aria", "sage"], index=0) or "alloy"
-    audio_format = st.selectbox("音声形式 / Định dạng", ["mp3", "wav"], index=0) or "mp3"
+    audio_format = st.selectbox("音声形式 / Định dạng", ["mp3", "wav"], index=1) or "wav"
 
 # read current choices from session
 src_choice = st.session_state.src
@@ -372,17 +372,24 @@ elif mode.startswith("会話"):
     if wav_bytes:
         transcript = transcribe_bytes(wav_bytes, "auto")
         detected = detect_lang_simple(transcript)
-        # Use the selected target language from translation settings
-        target = dst_choice
         
-        # If source and destination are the same, auto-select an appropriate target
-        if detected == dst_choice:
+        # Vice versa translation based on translation settings
+        # If detected language matches source setting, translate to destination
+        # If detected language matches destination setting, translate to source
+        if detected == src_choice:
+            target = dst_choice
+        elif detected == dst_choice:
+            target = src_choice
+        else:
+            # If detected language doesn't match either setting, use default logic
             if detected == "vi":
                 target = "ja"
             elif detected == "ja":
-                target = "vi"
+                target = "vi" 
             elif detected == "en":
-                target = "ja"  # default fallback
+                target = dst_choice if dst_choice != "en" else "ja"
+            else:
+                target = dst_choice
             
         translation = translate_text(transcript, detected, target)
         st.session_state.chat.append({

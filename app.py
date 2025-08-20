@@ -315,17 +315,36 @@ elif mode.startswith("音声入力"):
     st.subheader("🎤 音声入力翻訳 / Dịch giọng nói")
     st.caption("クリックして録音 / Nhấn để ghi âm")
 
-    # Smaller icon for phones
-    wav_bytes = audio_recorder(text="録音 / Ghi âm", recording_color="#e53935", neutral_color="#6c757d", icon_size="1.6x")
+    # Large mic button for easy access
+    wav_bytes = audio_recorder(text="録音 / Ghi âm", recording_color="#e53935", neutral_color="#6c757d", icon_size="3x")
     if wav_bytes:
         st.info("録音完了 / Đã ghi âm. テキスト化中... / Đang nhận dạng...")
-        transcript = transcribe_bytes(wav_bytes, src_choice if src_choice != "auto" else "auto")
+        transcript = transcribe_bytes(wav_bytes, "auto")
+        detected = detect_lang_simple(transcript)
         st.markdown("**文字起こし / Văn bản**")
         st.markdown(f"<div style='font-size: 1.5em; padding: 10px; background-color: #f0f2f6; border-radius: 5px; margin: 10px 0; color: #333333;'>{transcript}</div>", unsafe_allow_html=True)
 
+        # Vice versa translation based on translation settings
+        # If detected language matches source setting, translate to destination
+        # If detected language matches destination setting, translate to source
+        if detected == src_choice:
+            target = dst_choice
+        elif detected == dst_choice:
+            target = src_choice
+        else:
+            # If detected language doesn't match either setting, use default logic
+            if detected == "vi":
+                target = "ja"
+            elif detected == "ja":
+                target = "vi" 
+            elif detected == "en":
+                target = dst_choice if dst_choice != "en" else "ja"
+            else:
+                target = dst_choice
+
         # AI Context Analysis
         with st.spinner("AI分析中... / Đang phân tích AI..."):
-            context_info = detect_formality_and_context(transcript, src_choice)
+            context_info = detect_formality_and_context(transcript, detected)
             
         with st.expander("🤖 AI分析結果 / Kết quả phân tích AI", expanded=False):
             col1, col2, col3 = st.columns(3)
@@ -352,7 +371,7 @@ elif mode.startswith("音声入力"):
                         delta=f"{tone_emoji.get(current_tone, '😊')}")
 
         with st.spinner("翻訳中... / Đang dịch..."):
-            out = translate_text(transcript, src_choice, dst_choice)
+            out = translate_text(transcript, detected, target)
         st.markdown("**翻訳 / Bản dịch**")
         st.markdown(f"<div style='font-size: 1.7em; font-weight: bold; padding: 15px; background-color: #e8f4fd; border-radius: 5px; margin: 10px 0; border-left: 4px solid #1f77b4; color: #1f77b4;'>{out}</div>", unsafe_allow_html=True)
 
@@ -367,8 +386,8 @@ elif mode.startswith("会話"):
     if "chat" not in st.session_state:
         st.session_state.chat = []
 
-    # Smaller icon for phones
-    wav_bytes = audio_recorder(text="話す / Nói", recording_color="#1e88e5", neutral_color="#6c757d", icon_size="1.6x")
+    # Large mic button for easy access
+    wav_bytes = audio_recorder(text="話す / Nói", recording_color="#1e88e5", neutral_color="#6c757d", icon_size="3x")
     if wav_bytes:
         transcript = transcribe_bytes(wav_bytes, "auto")
         detected = detect_lang_simple(transcript)

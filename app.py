@@ -234,7 +234,7 @@ def speak(text: str, voice: str = "alloy", fmt: str = "mp3"):
 # -----------------------------
 with st.sidebar:
     st.header("⚙️ 設定 / Cài đặt")
-    mode = st.radio("モード / Chế độ", ["テキスト翻訳 / Dịch văn bản", "音声入力 / Ghi âm", "会話モード / Hội thoại"], index=0) or "テキスト翻訳 / Dịch văn bản"
+    mode = st.radio("モード / Chế độ", ["会話モード / Hội thoại", "テキスト翻訳 / Dịch văn bản", "音声入力 / Ghi âm"], index=0) or "会話モード / Hội thoại"
     st.divider()
 
     st.subheader("翻訳設定 / Cấu hình dịch")

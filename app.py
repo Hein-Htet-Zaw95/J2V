@@ -36,14 +36,14 @@ st.markdown("""
         background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
         color: white;
         border-radius: 10px;
-        margin-bottom: 2rem;
+        margin-bottom: 0.5rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .mode-section {
         background: #f8f9fa;
         padding: 1.5rem;
         border-radius: 15px;
-        margin: 1rem 0;
+        margin: 0 0 1rem 0;
         border-left: 5px solid #667eea;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
@@ -71,6 +71,7 @@ st.markdown("""
         border-radius: 10px;
         border-left: 4px solid #1f77b4;
         margin: 1rem 0;
+        color: #333;
     }
     .sidebar-section {
         background: #ffffff;
@@ -78,6 +79,91 @@ st.markdown("""
         border-radius: 10px;
         margin: 0.5rem 0;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Enhanced Loading Animations */
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        margin: 1rem 0;
+        color: white;
+        text-align: center;
+    }
+    
+    .loading-spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-top: 4px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 1rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .loading-dots {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: 8px;
+    }
+    
+    .loading-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #667eea;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .loading-dot:nth-child(2) { animation-delay: 0.3s; }
+    .loading-dot:nth-child(3) { animation-delay: 0.6s; }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 0.3; transform: scale(0.8); }
+        50% { opacity: 1; transform: scale(1.2); }
+    }
+    
+    .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #00f2ff, #ff00ea);
+        border-radius: 3px;
+        animation: progress 3s ease-in-out infinite;
+    }
+    
+    @keyframes progress {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+    }
+    
+    .ai-thinking {
+        font-size: 1.2rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+    
+    .thinking-text {
+        opacity: 0.8;
+        font-size: 0.9rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -96,6 +182,34 @@ def swap_langs():
 # -----------------------------
 # ヘルパー関数
 # -----------------------------
+
+def show_loading_animation(title: str, subtitle: str = ""):
+    """Display an animated loading screen with progress bar and spinner"""
+    st.markdown(f"""
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <div class="ai-thinking">{title}</div>
+        <div class="thinking-text">{subtitle}</div>
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def show_typing_animation(text: str):
+    """Show a typing animation effect for AI responses"""
+    st.markdown(f"""
+    <div style="background: #f8f9fa; padding: 1rem; border-radius: 10px; 
+                border-left: 4px solid #667eea; margin: 1rem 0;">
+        <span style="color: #667eea; font-weight: 500;">🤖 AI が考えています</span>
+        <span class="loading-dots">
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+        </span>
+        <div style="margin-top: 0.5rem; color: #666; font-style: italic;">{text}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 def detect_lang_simple(text: str) -> str:
     """ベトナム語/日本語/英語/ベンガル語/インドネシア語の簡易判定"""
@@ -298,11 +412,9 @@ with st.sidebar:
     st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
     st.markdown("### ⚙️ 設定")
     st.markdown("*Cài đặt*")
-    
     st.markdown("#### 🎯 モード選択")
     mode = st.radio("", ["🗣️ 会話モード", "📝 テキスト翻訳", "🎤 音声入力"], index=0, label_visibility="collapsed") or "🗣️ 会話モード"
     st.markdown('</div>', unsafe_allow_html=True)
-    
     st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
     st.markdown("#### 🌐 翻訳設定")
     st.markdown("*Cấu hình dịch*")
@@ -331,7 +443,6 @@ with st.sidebar:
         if dst_lang:
             st.session_state.dst = lang_map[dst_lang]
     st.markdown('</div>', unsafe_allow_html=True)
-
     st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
     st.markdown("#### 🎵 音声設定")
     st.markdown("*Cài đặt giọng nói*")
@@ -349,14 +460,10 @@ with st.sidebar:
 src_choice = st.session_state.src
 dst_choice = st.session_state.dst
 
-# -----------------------------
-# 各モード (UI 表示も日越併記)
-# -----------------------------
 if mode.startswith("📝"):
     st.markdown('<div class="mode-section">', unsafe_allow_html=True)
     st.markdown("## 📝 テキスト翻訳")
     st.markdown("*Dịch văn bản với phân tích AI*")
-    
     # Dynamic example based on language settings
     if dst_choice == "ja":
         example = "Xin chào, rất vui được gặp bạn!" if src_choice == "vi" else ("Hello, nice to meet you!" if src_choice == "en" else "こんにちは、お会いできて嬉しいです！")
@@ -364,7 +471,6 @@ if mode.startswith("📝"):
         example = "今日はとても暑いですね。" if src_choice == "ja" else ("The weather is very hot today." if src_choice == "en" else "Hôm nay thời tiết rất nóng.")
     else:  # dst_choice == "en"
         example = "今日はとても暑いですね。" if src_choice == "ja" else ("Xin chào, rất vui được gặp bạn!" if src_choice == "vi" else "Hello, how are you today?")
-    
     text_in = st.text_area("✍️ テキストを入力してください", example, height=120, 
                           help="翻訳したいテキストを入力してください")
     
@@ -376,28 +482,47 @@ if mode.startswith("📝"):
         if not text_in.strip():
             st.warning("⚠️ テキストを入力してください")
         else:
-            with st.spinner("🤖 AI分析中..."):
-                # First, detect context and formality
-                context_info = detect_formality_and_context(text_in, src_choice)
+            # AI Analysis Loading
+            analysis_placeholder = st.empty()
+            with analysis_placeholder:
+                show_loading_animation("� AI分析中", "文脈、丁寧度、調子を分析しています...")
+            
+            # First, detect context and formality
+            detected_input = detect_lang_simple(text_in)
+            
+            # Vice versa translation logic - same as other modes
+            if detected_input == src_choice:
+                target_lang = dst_choice
+            elif detected_input == dst_choice:
+                target_lang = src_choice
+            else:
+                target_lang = dst_choice  # Default to destination language
+            
+            context_info = detect_formality_and_context(text_in, detected_input)
+            analysis_placeholder.empty()
                 
             # Show AI analysis in a more attractive format
-            with st.expander("� AI分析結果", expanded=False):
-                col1, col2, col3 = st.columns(3)
+            with st.expander("🔍 AI分析結果", expanded=False):
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
+                    st.metric("検出言語", 
+                            f"{detected_input.upper()}", 
+                            delta="🔍")
+                with col2:
                     formality_emoji = {"casual": "😊", "neutral": "😐", "formal": "🎩", "very_formal": "👔"}
                     formality_jp = {"casual": "カジュアル", "neutral": "普通", "formal": "丁寧", "very_formal": "非常に丁寧"}
                     current_formality = context_info.get("formality", "neutral")
                     st.metric("丁寧度", 
                             f"{formality_jp.get(current_formality, '普通')}", 
                             delta=f"{formality_emoji.get(current_formality, '😐')}")
-                with col2:
+                with col3:
                     context_emoji = {"personal": "👥", "business": "💼", "academic": "🎓", "technical": "⚙️", "creative": "🎨", "medical": "🏥", "legal": "⚖️"}
                     context_jp = {"personal": "個人的", "business": "ビジネス", "academic": "学術的", "technical": "技術的", "creative": "創作的", "medical": "医療", "legal": "法的"}
                     current_context = context_info.get("context", "personal")
                     st.metric("文脈", 
                             f"{context_jp.get(current_context, '個人的')}",
                             delta=f"{context_emoji.get(current_context, '👥')}")
-                with col3:
+                with col4:
                     tone_emoji = {"friendly": "😊", "professional": "💼", "serious": "😐", "playful": "😄", "urgent": "⚡", "polite": "🙏"}
                     tone_jp = {"friendly": "親しみやすい", "professional": "プロ的", "serious": "真面目", "playful": "遊び心", "urgent": "緊急", "polite": "礼儀正しい"}
                     current_tone = context_info.get("tone", "friendly")
@@ -405,17 +530,25 @@ if mode.startswith("📝"):
                             f"{tone_jp.get(current_tone, '親しみやすい')}",
                             delta=f"{tone_emoji.get(current_tone, '😊')}")
                 
-            with st.spinner("✨ 翻訳中..."):
-                out = translate_text(text_in, src_choice, dst_choice)
+            # Translation Loading
+            translation_placeholder = st.empty()
+            with translation_placeholder:
+                show_loading_animation("✨ 高度AI翻訳中", "文脈を考慮した自然な翻訳を生成しています...")
             
-            st.success("✅ 翻訳完了!")
+            out = translate_text(text_in, detected_input, target_lang)
+            translation_placeholder.empty()
+            
+            st.success(f"🎉 翻訳完了: {detected_input.upper()} → {target_lang.upper()}")
             
             # Display translation result in attractive format
             st.markdown("### 🎯 翻訳結果")
+            out_safe = out.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
             st.markdown(f"""
             <div class="translation-box">
                 <div style="font-size: 1.4rem; line-height: 1.6;">
-                    {out}
+                    <span style="background: rgba(255,255,255,0.2); padding: 0.2rem 0.6rem; 
+                                 border-radius: 15px; font-size: 0.9rem; margin-right: 1rem;">{target_lang.upper()}</span>
+                    {out_safe}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -426,12 +559,10 @@ if mode.startswith("📝"):
                 st.audio(audio_bytes, format=mime)
     
     st.markdown('</div>', unsafe_allow_html=True)
-
 elif mode.startswith("🎤"):
     st.markdown('<div class="mode-section">', unsafe_allow_html=True)
     st.markdown("## 🎤 音声入力翻訳")
     st.markdown("*Dịch đầu vào giọng nói với phân tích AI*")
-
     # Centered mic button
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -448,18 +579,24 @@ elif mode.startswith("🎤"):
         st.markdown("<p style='text-align: center; color: #666; font-style: italic;'>マイクボタンを押して話してください</p>", unsafe_allow_html=True)
     
     if wav_bytes:
-        with st.spinner("🎧 音声認識中..."):
-            transcript = transcribe_bytes(wav_bytes, "auto")
-            detected = detect_lang_simple(transcript)
+        # Speech Recognition Loading
+        recognition_placeholder = st.empty()
+        with recognition_placeholder:
+            show_loading_animation("🎧 音声認識中", "音声をテキストに変換しています...")
+        
+        transcript = transcribe_bytes(wav_bytes, "auto")
+        detected = detect_lang_simple(transcript)
+        recognition_placeholder.empty()
         
         # Show transcript in attractive format
         st.markdown("### 📝 認識されたテキスト")
+        transcript_safe = transcript.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
         st.markdown(f"""
         <div class="transcript-box">
-            <div style="font-size: 1.3rem; line-height: 1.5;">
+            <div style="font-size: 1.3rem; line-height: 1.5; color: #000;">
                 <span style="background: #667eea; color: white; padding: 0.2rem 0.6rem; 
                              border-radius: 15px; font-size: 0.9rem; margin-right: 1rem;">{detected.upper()}</span>
-                {transcript}
+                {transcript_safe}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -473,10 +610,14 @@ elif mode.startswith("🎤"):
             target = dst_choice
 
         # AI Context Analysis
-        with st.spinner("🤖 AI分析中..."):
-            context_info = detect_formality_and_context(transcript, detected)
+        analysis_placeholder2 = st.empty()
+        with analysis_placeholder2:
+            show_loading_animation("� 音声分析中", "話し方の調子と文脈を分析しています...")
+        
+        context_info = detect_formality_and_context(transcript, detected)
+        analysis_placeholder2.empty()
             
-        with st.expander("� AI分析結果", expanded=False):
+        with st.expander("🔍 AI分析結果", expanded=False):
             col1, col2, col3 = st.columns(3)
             with col1:
                 formality_emoji = {"casual": "😊", "neutral": "😐", "formal": "🎩", "very_formal": "👔"}
@@ -500,17 +641,23 @@ elif mode.startswith("🎤"):
                         f"{tone_jp.get(current_tone, '親しみやすい')}",
                         delta=f"{tone_emoji.get(current_tone, '😊')}")
 
-        with st.spinner("✨ 翻訳中..."):
-            out = translate_text(transcript, detected, target)
+        # Voice Translation Loading
+        voice_translation_placeholder = st.empty()
+        with voice_translation_placeholder:
+            show_loading_animation("🗣️ 音声翻訳中", "自然で流暢な翻訳を生成しています...")
+        
+        out = translate_text(transcript, detected, target)
+        voice_translation_placeholder.empty()
         
         # Display translation result
         st.markdown("### 🎯 翻訳結果")
+        out_safe = out.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
         st.markdown(f"""
         <div class="translation-box">
             <div style="font-size: 1.4rem; line-height: 1.6;">
                 <span style="background: rgba(255,255,255,0.2); padding: 0.2rem 0.6rem; 
                              border-radius: 15px; font-size: 0.9rem; margin-right: 1rem;">{target.upper()}</span>
-                {out}
+                {out_safe}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -520,12 +667,10 @@ elif mode.startswith("🎤"):
             st.audio(audio_bytes, format=mime)
     
     st.markdown('</div>', unsafe_allow_html=True)
-
 elif mode.startswith("🗣️"):
     st.markdown('<div class="mode-section">', unsafe_allow_html=True)
     st.markdown("## 🗣️ リアルタイム会話翻訳")
     st.markdown("*Dịch hội thoại thời gian thực*")
-    
     # Language selection directly in conversation mode
     st.markdown("#### 🌐 翻訳言語設定")
     col1, col_swap, col2 = st.columns([2, 0.8, 2])
@@ -557,7 +702,6 @@ elif mode.startswith("🗣️"):
         )
         if dst_conv:
             st.session_state.dst = lang_map[dst_conv]
-    
     # Show current language settings with badges
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -567,10 +711,8 @@ elif mode.startswith("🗣️"):
         st.markdown('<div style="text-align: center; font-size: 1.5rem;">⇄</div>', unsafe_allow_html=True)
     with col3:
         st.markdown(f'<span class="language-badge">出力: {st.session_state.dst.upper()}</span>', unsafe_allow_html=True)
-    
     if "chat" not in st.session_state:
         st.session_state.chat = []
-
     # Centered large mic button
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -586,8 +728,14 @@ elif mode.startswith("🗣️"):
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #666; font-style: italic;'>マイクボタンを押して話してください</p>", unsafe_allow_html=True)
     if wav_bytes:
+        # Speech Recognition Loading
+        recognition_placeholder = st.empty()
+        with recognition_placeholder:
+            show_loading_animation("🎧 音声認識中", "音声をテキストに変換しています...")
+        
         transcript = transcribe_bytes(wav_bytes, "auto")
         detected = detect_lang_simple(transcript)
+        recognition_placeholder.empty()
         
         # Vice versa translation based on translation settings
         # If detected language matches source setting, translate to destination
@@ -600,8 +748,44 @@ elif mode.startswith("🗣️"):
         else:
             # If detected language doesn't match either setting, translate to destination
             target = dst_choice
+        
+        # Real-time Translation Loading
+        translation_placeholder = st.empty()
+        with translation_placeholder:
+            show_loading_animation("🗣️ リアルタイム翻訳中", "会話を自然に翻訳しています...")
             
         translation = translate_text(transcript, detected, target)
+        translation_placeholder.empty()
+        
+        # Show success notification with what was recognized and translated
+        st.success(f"🎉 翻訳完了: {detected.upper()} → {target.upper()}")
+        
+        # Show current recognition and translation before adding to chat
+        with st.expander("📝 現在の音声認識・翻訳結果", expanded=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**🎤 認識されたテキスト:**")
+                transcript_safe = transcript.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
+                st.markdown(f"""
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; 
+                            border-left: 3px solid #667eea; margin: 0.5rem 0; color: #000;">
+                    <span style="background: #667eea; color: white; padding: 0.2rem 0.6rem; 
+                                 border-radius: 15px; font-size: 0.8rem; margin-right: 0.5rem;">{detected.upper()}</span>
+                    {transcript_safe}
+                </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                st.markdown("**✨ 翻訳結果:**")
+                translation_safe = translation.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            color: white; padding: 1rem; border-radius: 8px; margin: 0.5rem 0;">
+                    <span style="background: rgba(255,255,255,0.2); padding: 0.2rem 0.6rem; 
+                                 border-radius: 15px; font-size: 0.8rem; margin-right: 0.5rem;">{target.upper()}</span>
+                    {translation_safe}
+                </div>
+                """, unsafe_allow_html=True)
+        
         st.session_state.chat.append({
             "speaker": "A" if (len(st.session_state.chat) % 2 == 0) else "B",
             "transcript": transcript,
@@ -677,4 +861,3 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
-

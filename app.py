@@ -172,9 +172,9 @@ st.markdown('<div class="main-header"><h1>🌏 多言語AI翻訳アシスタン�
 
 # Keep language choices in session and provide a one-click swap
 if "src" not in st.session_state:
-    st.session_state.src = "vi"
+    st.session_state.src = "ja"  # Default to Japanese
 if "dst" not in st.session_state:
-    st.session_state.dst = "ja"
+    st.session_state.dst = "vi"  # Default to Vietnamese
 
 def swap_langs():
     st.session_state.src, st.session_state.dst = st.session_state.dst, st.session_state.src
@@ -364,16 +364,33 @@ def translate_text(text: str, src: str, dst: str) -> str:
 
 
 def transcribe_bytes(wav_bytes: bytes, lang_hint: str = "auto") -> str:
+    # Validate audio data
+    if not wav_bytes or len(wav_bytes) < 1000:  # Too small to be valid audio
+        return ""
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
         tmp.write(wav_bytes)
         tmp_path = tmp.name
     try:
         with open(tmp_path, "rb") as f:
+            # Check file size again after writing
+            file_size = os.path.getsize(tmp_path)
+            if file_size < 1000:  # Too small to be valid audio
+                return ""
+                
             kwargs = {"model": STT_MODEL, "file": f}
             if lang_hint in ("vi", "ja", "en"):
                 kwargs["language"] = lang_hint
             stt = client.audio.transcriptions.create(**kwargs)
-        return stt.text.strip()
+        return stt.text.strip() if stt.text else ""
+    except Exception as e:
+        # Handle OpenAI API errors gracefully
+        if "BadRequestError" in str(type(e)) or "bad request" in str(e).lower():
+            st.warning("⚠️ 音声データが無効です。もう一度録音してください。")
+            return ""
+        else:
+            st.error(f"音声認識エラー: {str(e)}")
+            return ""
     finally:
         try:
             os.remove(tmp_path)
@@ -579,14 +596,22 @@ elif mode.startswith("🎤"):
         st.markdown("<p style='text-align: center; color: #666; font-style: italic;'>マイクボタンを押して話してください</p>", unsafe_allow_html=True)
     
     if wav_bytes:
-        # Speech Recognition Loading
-        recognition_placeholder = st.empty()
-        with recognition_placeholder:
-            show_loading_animation("🎧 音声認識中", "音声をテキストに変換しています...")
-        
-        transcript = transcribe_bytes(wav_bytes, "auto")
-        detected = detect_lang_simple(transcript)
-        recognition_placeholder.empty()
+        # Validate audio data before processing
+        if len(wav_bytes) < 1000:  # Too small to be valid audio
+            st.warning("⚠️ 録音された音声が短すぎます。もう一度お試しください。")
+        else:
+            # Speech Recognition Loading
+            recognition_placeholder = st.empty()
+            with recognition_placeholder:
+                show_loading_animation("🎧 音声認識中", "音声をテキストに変換しています...")
+            
+            transcript = transcribe_bytes(wav_bytes, "auto")
+            recognition_placeholder.empty()
+            
+            if not transcript.strip():
+                st.warning("⚠️ 音声を認識できませんでした。もう一度録音してください。")
+            else:
+                detected = detect_lang_simple(transcript)
         
         # Show transcript in attractive format
         st.markdown("### 📝 認識されたテキスト")
@@ -679,7 +704,7 @@ elif mode.startswith("🗣️"):
         src_conv = st.selectbox(
             "入力言語 / Ngôn ngữ đầu vào:",
             ["🇻🇳 ベトナム語", "🇯🇵 日本語", "🇺🇸 英語", "🇧🇩 ベンガル語", "🇮🇩 インドネシア語"], 
-            index=["vi", "ja", "en", "bn", "id"].index(st.session_state.src),
+            index=1,  # Default to Japanese (🇯🇵 日本語)
             key="conv_src"
         )
         # Update session state
@@ -697,7 +722,7 @@ elif mode.startswith("🗣️"):
         dst_conv = st.selectbox(
             "出力言語 / Ngôn ngữ đầu ra:",
             ["🇯🇵 日本語", "🇻🇳 ベトナム語", "🇺🇸 英語", "🇧🇩 ベンガル語", "🇮🇩 インドネシア語"], 
-            index=["ja", "vi", "en", "bn", "id"].index(st.session_state.dst),
+            index=1,  # Default to Vietnamese (🇻🇳 ベトナム語)
             key="conv_dst"
         )
         if dst_conv:
@@ -728,74 +753,82 @@ elif mode.startswith("🗣️"):
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #666; font-style: italic;'>マイクボタンを押して話してください</p>", unsafe_allow_html=True)
     if wav_bytes:
-        # Speech Recognition Loading
-        recognition_placeholder = st.empty()
-        with recognition_placeholder:
-            show_loading_animation("🎧 音声認識中", "音声をテキストに変換しています...")
-        
-        transcript = transcribe_bytes(wav_bytes, "auto")
-        detected = detect_lang_simple(transcript)
-        recognition_placeholder.empty()
-        
-        # Vice versa translation based on translation settings
-        # If detected language matches source setting, translate to destination
-        # If detected language matches destination setting, translate to source
-        # Only translate between the configured languages
-        if detected == src_choice:
-            target = dst_choice
-        elif detected == dst_choice:
-            target = src_choice
+        # Validate audio data before processing
+        if len(wav_bytes) < 1000:  # Too small to be valid audio
+            st.warning("⚠️ 録音された音声が短すぎます。もう一度お試しください。")
         else:
-            # If detected language doesn't match either setting, translate to destination
-            target = dst_choice
-        
-        # Real-time Translation Loading
-        translation_placeholder = st.empty()
-        with translation_placeholder:
-            show_loading_animation("🗣️ リアルタイム翻訳中", "会話を自然に翻訳しています...")
+            # Speech Recognition Loading
+            recognition_placeholder = st.empty()
+            with recognition_placeholder:
+                show_loading_animation("🎧 音声認識中", "音声をテキストに変換しています...")
             
-        translation = translate_text(transcript, detected, target)
-        translation_placeholder.empty()
-        
-        # Show success notification with what was recognized and translated
-        st.success(f"🎉 翻訳完了: {detected.upper()} → {target.upper()}")
-        
-        # Show current recognition and translation before adding to chat
-        with st.expander("📝 現在の音声認識・翻訳結果", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**🎤 認識されたテキスト:**")
-                transcript_safe = transcript.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
-                st.markdown(f"""
-                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; 
-                            border-left: 3px solid #667eea; margin: 0.5rem 0; color: #000;">
-                    <span style="background: #667eea; color: white; padding: 0.2rem 0.6rem; 
-                                 border-radius: 15px; font-size: 0.8rem; margin-right: 0.5rem;">{detected.upper()}</span>
-                    {transcript_safe}
-                </div>
-                """, unsafe_allow_html=True)
-            with col2:
-                st.markdown("**✨ 翻訳結果:**")
-                translation_safe = translation.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                            color: white; padding: 1rem; border-radius: 8px; margin: 0.5rem 0;">
-                    <span style="background: rgba(255,255,255,0.2); padding: 0.2rem 0.6rem; 
-                                 border-radius: 15px; font-size: 0.8rem; margin-right: 0.5rem;">{target.upper()}</span>
-                    {translation_safe}
-                </div>
-                """, unsafe_allow_html=True)
-        
-        st.session_state.chat.append({
-            "speaker": "A" if (len(st.session_state.chat) % 2 == 0) else "B",
-            "transcript": transcript,
-            "translation": translation,
-            "src": detected,
-            "dst": target,
-        })
-        audio_bytes, mime = speak(translation, voice=tts_voice, fmt=audio_format)
-        if audio_bytes:
-            st.audio(audio_bytes, format=mime)
+            transcript = transcribe_bytes(wav_bytes, "auto")
+            recognition_placeholder.empty()
+            
+            if not transcript.strip():
+                st.warning("⚠️ 音声を認識できませんでした。もう一度録音してください。")
+            else:
+                detected = detect_lang_simple(transcript)
+                
+                # Vice versa translation based on translation settings
+                # If detected language matches source setting, translate to destination
+                # If detected language matches destination setting, translate to source
+                # Only translate between the configured languages
+                if detected == src_choice:
+                    target = dst_choice
+                elif detected == dst_choice:
+                    target = src_choice
+                else:
+                    # If detected language doesn't match either setting, translate to destination
+                    target = dst_choice
+                
+                # Real-time Translation Loading
+                translation_placeholder = st.empty()
+                with translation_placeholder:
+                    show_loading_animation("🗣️ リアルタイム翻訳中", "会話を自然に翻訳しています...")
+                    
+                translation = translate_text(transcript, detected, target)
+                translation_placeholder.empty()
+                
+                # Show success notification with what was recognized and translated
+                st.success(f"🎉 翻訳完了: {detected.upper()} → {target.upper()}")
+                
+                # Show current recognition and translation before adding to chat
+                with st.expander("📝 現在の音声認識・翻訳結果", expanded=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("**🎤 認識されたテキスト:**")
+                        transcript_safe = transcript.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
+                        st.markdown(f"""
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; 
+                                    border-left: 3px solid #667eea; margin: 0.5rem 0; color: #000;">
+                            <span style="background: #667eea; color: white; padding: 0.2rem 0.6rem; 
+                                         border-radius: 15px; font-size: 0.8rem; margin-right: 0.5rem;">{detected.upper()}</span>
+                            {transcript_safe}
+                        </div>
+                        """, unsafe_allow_html=True)
+                    with col2:
+                        st.markdown("**✨ 翻訳結果:**")
+                        translation_safe = translation.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
+                        st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                    color: white; padding: 1rem; border-radius: 8px; margin: 0.5rem 0;">
+                            <span style="background: rgba(255,255,255,0.2); padding: 0.2rem 0.6rem; 
+                                         border-radius: 15px; font-size: 0.8rem; margin-right: 0.5rem;">{target.upper()}</span>
+                            {translation_safe}
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                st.session_state.chat.append({
+                    "speaker": "A" if (len(st.session_state.chat) % 2 == 0) else "B",
+                    "transcript": transcript,
+                    "translation": translation,
+                    "src": detected,
+                    "dst": target,
+                })
+                audio_bytes, mime = speak(translation, voice=tts_voice, fmt=audio_format)
+                if audio_bytes:
+                    st.audio(audio_bytes, format=mime)
 
     # Conversation history with improved design
     if st.session_state.chat:
